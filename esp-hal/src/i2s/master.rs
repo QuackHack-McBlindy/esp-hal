@@ -1054,6 +1054,16 @@ impl<Dm> I2sTx<'_, Dm>
 where
     Dm: DriverMode,
 {
+    /// Stop the I2S transmitter.
+    pub fn stop(&mut self) {
+        self.i2s.tx_stop();
+    }
+
+    /// Reset the I2S transmitter (stops and resets FIFO).
+    pub fn reset(&mut self) {
+        self.i2s.reset_tx();
+    }
+    
     fn write(&mut self, data: &[u8]) -> Result<(), Error> {
         self.start_tx_transfer(&data, false)?;
 
