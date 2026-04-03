@@ -811,13 +811,18 @@ where
     fn init_shared_clocks(&mut self) {
         let bclk = self.bclk.take().expect("BCLK missing");
         let ws = self.ws.take().expect("WS missing");
+
+        // Configure as outputs for TX
         bclk.connect_peripheral_to_output(self.i2s_tx.i2s.bclk_signal());
         ws.connect_peripheral_to_output(self.i2s_tx.i2s.ws_signal());
 
-        // Connect RX input signals to the same pins (receive clocks)
+        // Explicitly enable input buffers (so TX can also receive the clocks internally)
+        bclk.set_input_enable(true);
+        ws.set_input_enable(true);
+
+        // Connect RX input signals to the same pins
         self.i2s_tx.i2s.bclk_rx_signal().connect_to(&bclk);
         self.i2s_tx.i2s.ws_rx_signal().connect_to(&ws);
-
 
         if let Some(mclk) = self.mclk.take() {
             #[cfg(not(esp32))]
