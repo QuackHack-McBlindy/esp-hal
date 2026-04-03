@@ -814,6 +814,10 @@ where
         bclk.connect_peripheral_to_output(self.i2s_tx.i2s.bclk_signal());
         ws.connect_peripheral_to_output(self.i2s_tx.i2s.ws_signal());
 
+        bclk.connect_peripheral_to_input(self.i2s_tx.i2s.bclk_rx_signal());
+        ws.connect_peripheral_to_input(self.i2s_tx.i2s.ws_rx_signal());
+
+
         if let Some(mclk) = self.mclk.take() {
             #[cfg(not(esp32))]
             {
