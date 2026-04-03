@@ -751,6 +751,9 @@ where
     pub i2s_rx: RxCreator<'d, Dm>,
     /// Handles the transmission (TX) side of the I2S peripheral.
     pub i2s_tx: TxCreator<'d, Dm>,
+    pub(crate) bclk: Option<Pin<'d>>,
+    pub(crate) ws: Option<Pin<'d>>,
+    pub(crate) mclk: Option<Pin<'d>>,
 }
 
 impl<Dm> I2s<'_, Dm>
@@ -804,6 +807,46 @@ where
         // tx.i2s and rx.i2s is the same, we could use either one
         self.i2s_tx.i2s.clear_interrupts(interrupts.into());
     }
+
+    fn init_shared_clocks(&mut self) {
+        let bclk = self.bclk.take().expect("BCLK missing");
+        let ws = self.ws.take().expect("WS missing");
+        bclk.connect_peripheral_to_output(self.i2s_tx.i2s.bclk_signal());
+        ws.connect_peripheral_to_output(self.i2s_tx.i2s.ws_signal());
+
+        if let Some(mclk) = self.mclk.take() {
+            #[cfg(not(esp32))]
+            {
+                mclk.apply_output_config(&OutputConfig::default());
+                mclk.set_output_enable(true);
+                self.i2s_tx.i2s.mclk_signal().connect_to(&mclk);
+            }
+            #[cfg(esp32)]
+            {
+                use crate::{gpio::OutputSignal, peripherals::IO_MUX};
+
+                let clk_signal = mclk.signal();
+                mclk.apply_output_config(&OutputConfig::default());
+                mclk.set_output_enable(true);
+
+                let selector = match self.i2s_tx.i2s.0 {
+                    super::any::Inner::I2s0(_) => 0x0,
+                    super::any::Inner::I2s1(_) => 0xF,
+                };
+
+                IO_MUX::regs().pin_ctrl().modify(|_, w| unsafe {
+                    match clk_signal {
+                        OutputSignal::CLK_OUT1 => w.clk1().bits(selector),
+                        OutputSignal::CLK_OUT2 => w.clk2().bits(selector),
+                        OutputSignal::CLK_OUT3 => w.clk3().bits(selector),
+                        _ => unreachable!(),
+                    }
+                });
+
+                clk_signal.connect_to(&mclk);
+            }
+        }
+    }
 }
 
 impl<Dm> crate::private::Sealed for I2s<'_, Dm> where Dm: DriverMode {}
@@ -843,6 +886,9 @@ impl<'d> I2s<'d, Blocking> {
         i2s.update();
 
         Ok(Self {
+            bclk: None,
+            ws: None,
+            mclk: None,
             i2s_rx: RxCreator {
                 i2s: unsafe { i2s.clone_unchecked() },
                 rx_channel: channel.rx,
@@ -861,7 +907,8 @@ impl<'d> I2s<'d, Blocking> {
     }
 
     /// Converts the I2S instance into async mode.
-    pub fn into_async(self) -> I2s<'d, Async> {
+    pub fn into_async(mut self) -> I2s<'d, Async> {
+        self.init_shared_clocks();
         I2s {
             i2s_rx: RxCreator {
                 i2s: self.i2s_rx.i2s,
@@ -877,7 +924,41 @@ impl<'d> I2s<'d, Blocking> {
                 #[cfg(any(esp32, esp32s2))]
                 data_format: self.i2s_tx.data_format,
             },
+            bclk: None,
+            ws: None,
+            mclk: None,
         }
+    }
+}
+
+impl<'d, Dm> I2s<'d, Dm>
+where
+    Dm: DriverMode,
+{
+    /// Set the BCLK pin to be used by the I2S peripheral.
+    pub fn with_bclk(mut self, pin: impl Into<Pin<'d>>) -> Self {
+        self.bclk = Some(pin.into());
+        self
+    }
+
+    /// Set the WS (LRCLK) pin to be used by the I2S peripheral.
+    pub fn with_ws(mut self, pin: impl Into<Pin<'d>>) -> Self {
+        self.ws = Some(pin.into());
+        self
+    }
+
+    /// Set the MCLK pin to be used by the I2S peripheral.
+    #[cfg(not(esp32))]
+    pub fn with_mclk(mut self, pin: impl Into<Pin<'d>>) -> Self {
+        self.mclk = Some(pin.into());
+        self
+    }
+
+    /// Set the MCLK pin to be used by the I2S peripheral (ESP32 special case).
+    #[cfg(esp32)]
+    pub fn with_mclk(mut self, pin: impl ClkPin<'d>) -> Self {
+        self.mclk = Some(pin.into());
+        self
     }
 }
 
@@ -909,68 +990,6 @@ mod esp32 {
         fn signal(&self) -> OutputSignal {
             OutputSignal::CLK_OUT2
         }
-    }
-}
-
-#[cfg(esp32)]
-pub use esp32::ClkPin;
-
-impl<'d, Dm> I2s<'d, Dm>
-where
-    Dm: DriverMode,
-{
-    /// Configures the I2S peripheral to use a master clock (MCLK) output pin.
-    #[cfg(not(esp32))]
-    pub fn with_mclk(self, mclk: impl PeripheralOutput<'d>) -> Self {
-        let mclk = mclk.into();
-
-        mclk.apply_output_config(&OutputConfig::default());
-        mclk.set_output_enable(true);
-
-        self.i2s_tx.i2s.mclk_signal().connect_to(&mclk);
-
-        self
-    }
-
-    /// Configures the I2S peripheral to output its clock to a pin.
-    #[cfg(esp32)]
-    pub fn with_mclk(self, mclk: impl ClkPin<'d>) -> Self {
-        use crate::{gpio::OutputSignal, peripherals::IO_MUX};
-
-        let clk_signal = mclk.signal();
-
-        let mclk = mclk.into();
-
-        mclk.apply_output_config(&OutputConfig::default());
-        mclk.set_output_enable(true);
-
-        // We need to do two things:
-        // - Configure the IO_MUX_PIN_CTRL register
-        // - Select the correct pin function
-
-        let selector = match self.i2s_rx.i2s.0 {
-            super::any::Inner::I2s0(_) => 0x0,
-            super::any::Inner::I2s1(_) => 0xF,
-        };
-
-        // Route the appropriate I2S clock output to the selected signal.
-        IO_MUX::regs().pin_ctrl().modify(|_, w| unsafe {
-            match clk_signal {
-                OutputSignal::CLK_OUT1 => w.clk1().bits(selector),
-                OutputSignal::CLK_OUT2 => w.clk2().bits(selector),
-                OutputSignal::CLK_OUT3 => w.clk3().bits(selector),
-                _ => unreachable!(),
-            }
-        });
-
-        // Connect the clock signal to the selected pin.
-        clk_signal.connect_to(&mclk);
-
-        // I think it's okay to leave the configuration untouched when dropping the driver. We'll
-        // gate the clock source, which should also stop the clock output. Reusing the pins will
-        // remove the output signal assignment.
-
-        self
     }
 }
 
@@ -1330,25 +1349,11 @@ mod private {
             }
         }
 
-        pub fn with_bclk(self, bclk: impl PeripheralOutput<'d>) -> Self {
-            let bclk = bclk.into();
-
-            bclk.apply_output_config(&OutputConfig::default());
-            bclk.set_output_enable(true);
-
-            self.i2s.bclk_signal().connect_to(&bclk);
-
+        pub fn with_bclk(self, _bclk: impl PeripheralOutput<'d>) -> Self {
             self
         }
 
-        pub fn with_ws(self, ws: impl PeripheralOutput<'d>) -> Self {
-            let ws = ws.into();
-
-            ws.apply_output_config(&OutputConfig::default());
-            ws.set_output_enable(true);
-
-            self.i2s.ws_signal().connect_to(&ws);
-
+        pub fn with_ws(self, _ws: impl PeripheralOutput<'d>) -> Self {
             self
         }
 
@@ -1391,25 +1396,11 @@ mod private {
             }
         }
 
-        pub fn with_bclk(self, bclk: impl PeripheralOutput<'d>) -> Self {
-            let bclk = bclk.into();
-
-            bclk.apply_output_config(&OutputConfig::default());
-            bclk.set_output_enable(true);
-
-            self.i2s.bclk_rx_signal().connect_to(&bclk);
-
+        pub fn with_bclk(self, _bclk: impl PeripheralOutput<'d>) -> Self {
             self
         }
 
-        pub fn with_ws(self, ws: impl PeripheralOutput<'d>) -> Self {
-            let ws = ws.into();
-
-            ws.apply_output_config(&OutputConfig::default());
-            ws.set_output_enable(true);
-
-            self.i2s.ws_rx_signal().connect_to(&ws);
-
+        pub fn with_ws(self, _ws: impl PeripheralOutput<'d>) -> Self {
             self
         }
 
@@ -2050,10 +2041,10 @@ mod private {
                 w.rx_tdm_pdm_chan1_en().bit(config.channels.mask.bit(1));
                 w.rx_tdm_pdm_chan2_en().bit(config.channels.mask.bit(2));
                 w.rx_tdm_pdm_chan3_en().bit(config.channels.mask.bit(3));
-                w.rx_tdm_pdm_chan4_en().bit(config.channels.mask.bit(4));
-                w.rx_tdm_pdm_chan5_en().bit(config.channels.mask.bit(5));
-                w.rx_tdm_pdm_chan6_en().bit(config.channels.mask.bit(6));
-                w.rx_tdm_pdm_chan7_en().bit(config.channels.mask.bit(7));
+                w.rx_tdm_chan4_en().bit(config.channels.mask.bit(4));
+                w.rx_tdm_chan5_en().bit(config.channels.mask.bit(5));
+                w.rx_tdm_chan6_en().bit(config.channels.mask.bit(6));
+                w.rx_tdm_chan7_en().bit(config.channels.mask.bit(7));
                 w.rx_tdm_chan8_en().bit(config.channels.mask.bit(8));
                 w.rx_tdm_chan9_en().bit(config.channels.mask.bit(9));
                 w.rx_tdm_chan10_en().bit(config.channels.mask.bit(10));
