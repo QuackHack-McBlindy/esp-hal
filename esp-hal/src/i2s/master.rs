@@ -1208,6 +1208,14 @@ impl<Dm> I2sRx<'_, Dm>
 where
     Dm: DriverMode,
 {
+    pub fn stop(&mut self) {
+        self.i2s.rx_stop();
+    }
+
+    pub fn reset(&mut self) {
+        self.i2s.reset_rx();
+    }
+
     fn read(&mut self, mut data: &mut [u8]) -> Result<(), Error> {
         self.start_rx_transfer(&mut data, false)?;
 
