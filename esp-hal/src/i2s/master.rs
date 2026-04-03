@@ -1055,12 +1055,12 @@ where
     Dm: DriverMode,
 {
     /// Stop the I2S transmitter.
-    pub fn stop(&mut self) {
+    pub fn stop_tx(&mut self) {
         self.i2s.tx_stop();
     }
 
     /// Reset the I2S transmitter (stops and resets FIFO).
-    pub fn reset(&mut self) {
+    pub fn reset_tx(&mut self) {
         self.i2s.reset_tx();
     }
     
@@ -1208,11 +1208,9 @@ impl<Dm> I2sRx<'_, Dm>
 where
     Dm: DriverMode,
 {
-    pub fn stop(&mut self) {
-        self.i2s.rx_stop();
-    }
 
-    pub fn reset(&mut self) {
+
+    pub fn reset_rx(&mut self) {
         self.i2s.reset_rx();
     }
 
