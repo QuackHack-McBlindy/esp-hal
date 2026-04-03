@@ -817,7 +817,7 @@ where
         if let Some(mclk) = self.mclk.take() {
             #[cfg(not(esp32))]
             {
-                mclk.apply_output_config(&OutputConfig::default());
+                mclk.set_output_config(&OutputConfig::default()).unwrap();
                 mclk.set_output_enable(true);
                 self.i2s_tx.i2s.mclk_signal().connect_to(&mclk);
             }
