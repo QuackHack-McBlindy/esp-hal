@@ -138,7 +138,7 @@ use crate::{
         WriteBuffer,
         dma_private::{DmaSupport, DmaSupportRx, DmaSupportTx},
     },
-    gpio::{Pin, OutputConfig, interconnect::PeripheralOutput},
+    gpio::{AnyPin, OutputConfig, interconnect::PeripheralOutput},
     i2s::AnyI2s,
     interrupt::{InterruptConfigurable, InterruptHandler},
     system::PeripheralGuard,
@@ -751,9 +751,9 @@ where
     pub i2s_rx: RxCreator<'d, Dm>,
     /// Handles the transmission (TX) side of the I2S peripheral.
     pub i2s_tx: TxCreator<'d, Dm>,
-    pub(crate) bclk: Option<Pin<'d>>,
-    pub(crate) ws: Option<Pin<'d>>,
-    pub(crate) mclk: Option<Pin<'d>>,
+    pub(crate) bclk: Option<AnyPin<'d>>,
+    pub(crate) ws: Option<AnyPin<'d>>,
+    pub(crate) mclk: Option<AnyPin<'d>>,
 }
 
 impl<Dm> I2s<'_, Dm>
@@ -936,20 +936,20 @@ where
     Dm: DriverMode,
 {
     /// Set the BCLK pin to be used by the I2S peripheral.
-    pub fn with_bclk(mut self, pin: impl Into<Pin<'d>>) -> Self {
+    pub fn with_bclk(mut self, pin: impl Into<AnyPin<'d>>) -> Self {
         self.bclk = Some(pin.into());
         self
     }
 
     /// Set the WS (LRCLK) pin to be used by the I2S peripheral.
-    pub fn with_ws(mut self, pin: impl Into<Pin<'d>>) -> Self {
+    pub fn with_ws(mut self, pin: impl Into<AnyPin<'d>>) -> Self {
         self.ws = Some(pin.into());
         self
     }
 
     /// Set the MCLK pin to be used by the I2S peripheral.
     #[cfg(not(esp32))]
-    pub fn with_mclk(mut self, pin: impl Into<Pin<'d>>) -> Self {
+    pub fn with_mclk(mut self, pin: impl Into<AnyPin<'d>>) -> Self {
         self.mclk = Some(pin.into());
         self
     }
