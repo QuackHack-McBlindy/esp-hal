@@ -138,7 +138,7 @@ use crate::{
         WriteBuffer,
         dma_private::{DmaSupport, DmaSupportRx, DmaSupportTx},
     },
-    gpio::{OutputConfig, interconnect::PeripheralOutput},
+    gpio::{Pin, OutputConfig, interconnect::PeripheralOutput},
     i2s::AnyI2s,
     interrupt::{InterruptConfigurable, InterruptHandler},
     system::PeripheralGuard,
@@ -2041,10 +2041,10 @@ mod private {
                 w.rx_tdm_pdm_chan1_en().bit(config.channels.mask.bit(1));
                 w.rx_tdm_pdm_chan2_en().bit(config.channels.mask.bit(2));
                 w.rx_tdm_pdm_chan3_en().bit(config.channels.mask.bit(3));
-                w.rx_tdm_chan4_en().bit(config.channels.mask.bit(4));
-                w.rx_tdm_chan5_en().bit(config.channels.mask.bit(5));
-                w.rx_tdm_chan6_en().bit(config.channels.mask.bit(6));
-                w.rx_tdm_chan7_en().bit(config.channels.mask.bit(7));
+                w.rx_tdm_chan14_en().bit(config.channels.mask.bit(4));
+                w.rx_tdm_chan15_en().bit(config.channels.mask.bit(5));
+                w.rx_tdm_chan8_en().bit(config.channels.mask.bit(6));
+                w.rx_tdm_chan8_en().bit(config.channels.mask.bit(7));
                 w.rx_tdm_chan8_en().bit(config.channels.mask.bit(8));
                 w.rx_tdm_chan9_en().bit(config.channels.mask.bit(9));
                 w.rx_tdm_chan10_en().bit(config.channels.mask.bit(10));
