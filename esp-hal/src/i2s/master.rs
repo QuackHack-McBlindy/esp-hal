@@ -818,7 +818,7 @@ where
             #[cfg(not(esp32))]
             {
                 mclk.set_output_config(&OutputConfig::default()).unwrap();
-                mclk.set_output_enable(true);
+                //mclk.set_output_enable(true);
                 self.i2s_tx.i2s.mclk_signal().connect_to(&mclk);
             }
             #[cfg(esp32)]
@@ -827,7 +827,7 @@ where
 
                 let clk_signal = mclk.signal();
                 mclk.apply_output_config(&OutputConfig::default());
-                mclk.set_output_enable(true);
+                //mclk.set_output_enable(true);
 
                 let selector = match self.i2s_tx.i2s.0 {
                     super::any::Inner::I2s0(_) => 0x0,
