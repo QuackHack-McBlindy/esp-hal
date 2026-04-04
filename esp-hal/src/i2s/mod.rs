@@ -3,6 +3,7 @@
 use crate::dma::DmaEligible;
 
 pub mod master;
+pub mod switcher;
 
 #[cfg(esp32)]
 pub mod parallel;
