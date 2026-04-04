@@ -808,7 +808,7 @@ where
         self.i2s_tx.i2s.clear_interrupts(interrupts.into());
     }
 
-    fn init_shared_clocks(&mut self) {
+    pub fn init_shared_clocks(&mut self) {
         let bclk = self.bclk.take().expect("BCLK missing");
         let ws = self.ws.take().expect("WS missing");
 
