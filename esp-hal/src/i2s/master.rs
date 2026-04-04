@@ -1213,16 +1213,6 @@ impl<Dm> I2sRx<'_, Dm>
 where
     Dm: DriverMode,
 {
-    pub fn into_async(self) -> I2sRx<'_, Async> {
-        I2sRx {
-            i2s: self.i2s,
-            rx_channel: self.rx_channel.into_async(),
-            rx_chain: self.rx_chain,
-            _guard: self._guard,
-            #[cfg(any(esp32, esp32s2))]
-            data_format: self.data_format,
-        }
-    }
 
     pub fn reset_rx(&mut self) {
         self.i2s.reset_rx();
@@ -1331,6 +1321,22 @@ impl Instance for crate::peripherals::I2S0<'_> {}
 #[cfg(soc_has_i2s1)]
 impl Instance for crate::peripherals::I2S1<'_> {}
 impl Instance for AnyI2s<'_> {}
+
+
+impl<'d> I2sRx<'d, Blocking> {
+    /// Convert a blocking I2S receiver into an async one.
+    pub fn into_async(self) -> I2sRx<'d, Async> {
+        I2sRx {
+            i2s: self.i2s,
+            rx_channel: self.rx_channel.into_async(),
+            rx_chain: self.rx_chain,
+            _guard: self._guard,
+            #[cfg(any(esp32, esp32s2))]
+            data_format: self.data_format,
+        }
+    }
+}
+
 
 mod private {
     use enumset::EnumSet;
