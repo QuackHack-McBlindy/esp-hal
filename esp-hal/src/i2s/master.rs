@@ -1448,7 +1448,7 @@ mod private {
         fn peripheral(&self) -> crate::system::Peripheral;
     }
 
-    pub trait Signals: RegBlock {
+    pub(crate) trait Signals: RegBlock {
         #[cfg(not(esp32))] // MCLK on ESP32 requires special handling
         fn mclk_signal(&self) -> OutputSignal;
         fn bclk_signal(&self) -> OutputSignal;

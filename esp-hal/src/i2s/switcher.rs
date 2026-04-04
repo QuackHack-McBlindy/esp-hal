@@ -2,9 +2,13 @@
 
 use crate::{
     dma::DmaDescriptor,
-    gpio::{AnyPin, InputPin, OutputPin, interconnect::PeripheralInput},
-    i2s::master::{I2s, I2sRx, I2sTx, Blocking},
+    gpio::{AnyPin, OutputPin, interconnect::{PeripheralInput, PeripheralOutput}},
+    i2s::master::{I2s, I2sRx, I2sTx},
+    Blocking,
 };
+
+// This trait is made `pub(crate)` in `master.rs` – see note below.
+use crate::i2s::master::private::Signals;
 
 /// A wrapper that holds an I2S instance and separate DMA descriptors for RX and TX.
 pub struct I2sSwitcher<'d> {
@@ -34,7 +38,7 @@ impl<'d> I2sSwitcher<'d> {
     }
 
     /// Convert into an I2S transmitter (TX) with the given data output pin.
-    pub fn into_tx(mut self, dout: impl OutputPin<'d>) -> I2sTx<'d, Blocking> {
+    pub fn into_tx(mut self, dout: impl OutputPin) -> I2sTx<'d, Blocking> {
         self.init_shared_clocks();
         self.i2s.i2s_tx.with_dout(dout).build(self.tx_descriptors)
     }
@@ -42,15 +46,15 @@ impl<'d> I2sSwitcher<'d> {
     /// Initialise shared clock pins (BCLK, WS, MCLK) for both RX and TX.
     fn init_shared_clocks(&mut self) {
         if let (Some(bclk), Some(ws)) = (self.i2s.bclk.take(), self.i2s.ws.take()) {
-            // Connect to TX outputs
+            // Connect to TX outputs (master mode)
             bclk.connect_peripheral_to_output(self.i2s.i2s_tx.i2s.bclk_signal());
             ws.connect_peripheral_to_output(self.i2s.i2s_tx.i2s.ws_signal());
 
-            // Enable input buffers so RX can also use them
+            // Enable input buffers so RX can also receive the clocks
             bclk.set_input_enable(true);
             ws.set_input_enable(true);
 
-            // Connect to RX inputs
+            // Connect RX input signals to the same pins
             self.i2s.i2s_tx.i2s.bclk_rx_signal().connect_to(&bclk);
             self.i2s.i2s_tx.i2s.ws_rx_signal().connect_to(&ws);
         }
