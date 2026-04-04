@@ -1463,7 +1463,7 @@ mod private {
         fn peripheral(&self) -> crate::system::Peripheral;
     }
 
-    pub(crate) trait Signals: RegBlock {
+    pub trait Signals: RegBlock {
         #[cfg(not(esp32))] // MCLK on ESP32 requires special handling
         fn mclk_signal(&self) -> OutputSignal;
         fn bclk_signal(&self) -> OutputSignal;
@@ -2374,6 +2374,26 @@ mod private {
                 fn disable_peri_interrupt_on_all_cores(&self);
             }
         }
+
+        pub fn bclk_signal(&self) -> OutputSignal {
+            self.bclk_signal()
+        }
+
+        /// Get the input signal for BCLK (receiver).
+        pub fn bclk_rx_signal(&self) -> OutputSignal {
+            self.bclk_rx_signal()
+        }
+
+        /// Get the output signal for WS (transmitter).
+        pub fn ws_signal(&self) -> OutputSignal {
+            self.ws_signal()
+        }
+
+        /// Get the input signal for WS (receiver).
+        pub fn ws_rx_signal(&self) -> OutputSignal {
+            self.ws_rx_signal()
+        }
+
 
         pub(super) fn set_interrupt_handler(&self, handler: InterruptHandler) {
             self.disable_peri_interrupt_on_all_cores();
