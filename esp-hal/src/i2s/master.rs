@@ -1213,7 +1213,16 @@ impl<Dm> I2sRx<'_, Dm>
 where
     Dm: DriverMode,
 {
-
+    pub fn into_async(self) -> I2sRx<'_, Async> {
+        I2sRx {
+            i2s: self.i2s,
+            rx_channel: self.rx_channel.into_async(),
+            rx_chain: self.rx_chain,
+            _guard: self._guard,
+            #[cfg(any(esp32, esp32s2))]
+            data_format: self.data_format,
+        }
+    }
 
     pub fn reset_rx(&mut self) {
         self.i2s.reset_rx();
